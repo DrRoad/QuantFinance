@@ -1,0 +1,21 @@
+library(depmixS4)
+library(quantmod)
+library(PerformanceAnalytics)
+getSymbols('SPY',from='1990-01-01',src='yahoo',adjust=TRUE)
+spyRets<-na.omit(Return.calculate(Ad(SPY)))
+
+set.seed(123)
+
+hmm<-depmix(SPY.Adjusted~1,family = gaussian(),nstates = 3,data=spyRets)
+hmmfit<-fit(hmm,verbose=FALSE)
+post_probs<-posterior(hmmfit)
+post_probs<-xts(post_probs,order.by = index(spyRets))
+plot(post_probs$state)
+summaryMat<-data.frame(summary(hmmfit))
+colnames(summaryMat)<-c("Intercept","SD")
+bullState<-which(summaryMat$Intercept>0)
+bearState<-which(summaryMat$Intercept<0)
+
+hmmRets<-spyRets*lag(post_probs$state==bullState)-spyRets*lag(post_probs$state==bearState)
+charts.PerformanceSummary(hmmRets)
+table.AnnualizedReturns(hmmRets)
